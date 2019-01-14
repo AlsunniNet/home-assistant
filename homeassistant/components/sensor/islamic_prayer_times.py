@@ -26,7 +26,7 @@ SENSOR_TYPES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha',
 CONF_CALC_METHOD = 'calculation_method'
 CONF_SENSORS = 'sensors'
 
-CALC_METHODS = ['karachi', 'isna', 'mwl', 'makkah']
+CALC_METHODS = ['shia','karachi', 'isna', 'mwl', 'makkah']
 DEFAULT_CALC_METHOD = 'isna'
 DEFAULT_SENSORS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
 
