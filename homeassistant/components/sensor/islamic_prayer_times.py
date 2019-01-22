@@ -4,6 +4,8 @@ Platform to retrieve Islamic prayer times information for Home Assistant.
 For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/sensor.islamic_prayer_times/
 """
+from .exceptions import *
+import requests
 import logging
 from datetime import datetime, timedelta
 import voluptuous as vol
@@ -26,7 +28,7 @@ SENSOR_TYPES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha',
 CONF_CALC_METHOD = 'calculation_method'
 CONF_SENSORS = 'sensors'
 
-CALC_METHODS = ['shia','karachi', 'isna', 'mwl', 'makkah']
+CALC_METHODS = ['shia', 'karachi', 'isna', 'mwl', 'makkah', 'egas', 'igut', 'gulf', 'kuwait', 'qatar', 'muss', 'uoisdf', 'dibt']
 DEFAULT_CALC_METHOD = 'isna'
 DEFAULT_SENSORS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
 
@@ -138,6 +140,54 @@ async def update_sensors(hass, sensors, prayer_times_data):
     await schedule_future_update(hass, sensors, prayer_times['Midnight'],
                                  prayer_times_data)
 
+class PrayerTimesCalculator:
+    CALCULATION_METHODS = {
+        'shia': 0, 
+        'karachi': 1,
+        'isna': 2,
+        'mwl': 3,
+        'makkah': 4,
+        'egas': 5,
+        'igut': 6,
+        'gulf': 7,
+        'kuwait': 8,
+        'qatar': 9,
+        'muss': 10,
+        'uoisdf': 11,
+        'dibt': 12
+    }
+
+    API_URL = "http://api.aladhan.com/timings"
+
+    def __init__(self, latitude: float, longitude: float,
+                 calculation_method: str, date: str):
+        self._latitude = latitude
+        self._longitude = longitude
+
+        calculation_method = calculation_method.lower()
+        if calculation_method in self.CALCULATION_METHODS:
+            self._calculation_method = self.CALCULATION_METHODS[
+                calculation_method]
+        else:
+            raise CalculationMethodError("\nInvalid Calculation Method.  Must "
+                                         "be one of: {}".format(
+                ', '.join(self.CALCULATION_METHODS.keys())))
+
+        date_parsed = datetime.strptime(date, '%Y-%m-%d')
+        self._timestamp = int(date_parsed.timestamp())
+
+    def fetch_prayer_times(self):
+        url = "{}/{}?latitude={}&longitude={}&method={}".format(
+            self.API_URL, self._timestamp, self._latitude, self._longitude,
+            self._calculation_method)
+
+        response = requests.get(url)
+
+        if not response.status_code == 200:
+            raise InvalidResponseError(
+                "\nUnable to retrive prayer times.  Url: {}".format(url))
+
+        return response.json()['data']['timings']
 
 class IslamicPrayerTimesData:
     """Data object for Islamic prayer times."""
@@ -151,7 +201,7 @@ class IslamicPrayerTimesData:
 
     def get_new_prayer_times(self):
         """Fetch prayer times for today."""
-        from prayer_times_calculator import PrayerTimesCalculator
+        """from prayer_times_calculator import PrayerTimesCalculator"""
 
         today = datetime.today().strftime('%Y-%m-%d')
 
@@ -219,3 +269,4 @@ class IslamicPrayerTimeSensor(Entity):
         prayer_time = self.prayer_times_data.prayer_times_info[self.name]
         pt_dt = self.get_prayer_time_as_dt(prayer_time)
         self._state = pt_dt.isoformat()
+
